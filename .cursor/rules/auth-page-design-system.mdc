@@ -1,0 +1,25 @@
+---
+description: Auth pages layout and spacing consistency
+globs: src/views/*{Login,Register,ForgotPassword}Page.vue
+alwaysApply: true
+---
+
+# 认证页设计规则
+
+- 登录、注册、忘记密码统一使用 `AuthShell` 双栏结构：左文案、右卡片。
+- 认证页保持同一背景渐变，不加业务页头部导航。
+- 左侧文案区使用较大外边距，避免贴边；右侧表单区同样保留足够浏览器边距。
+- 表单卡片需保持白底、轻边框、轻阴影、圆角。
+- 卡片内边距偏宽松，避免标题与输入项拥挤。
+- 表单垂直节奏统一：`label -> input -> hint` 间距清晰，输入项之间留足空间。
+- 主按钮和次按钮高度一致，宽度为卡片可用宽度。
+- 移动端回落单列时，继续保留卡片内边距与输入项间距，不得压缩到难以阅读。
+
+## 样式修改示例
+
+```css
+.auth-visual { padding: 52px 96px; }
+.auth-panel { padding: 40px 52px; }
+.auth-card { padding: 28px 24px 24px; }
+.field-input { margin-bottom: 14px; }
+```
