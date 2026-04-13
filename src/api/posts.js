@@ -1,6 +1,7 @@
 import request from '../utils/request'
 import { readDB, writeDB } from '../mock/db'
 import { appConfig } from '../config'
+import { plainTextFromHtml } from '../utils/validators'
 
 const useMock = appConfig.useMock
 const sleep = (ms = 220) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -26,12 +27,24 @@ export async function savePostApi(post) {
   if (!useMock) return post.id ? request.put(`/posts/${post.id}`, post) : request.post('/posts', post)
   await sleep()
   const db = readDB()
+  const excerpt =
+    post.excerpt && String(post.excerpt).trim()
+      ? post.excerpt
+      : plainTextFromHtml(post.body || '').slice(0, 120) || '（无摘要）'
   if (post.id) {
     const idx = db.posts.findIndex((item) => item.id === post.id)
-    if (idx >= 0) db.posts[idx] = { ...db.posts[idx], ...post, updatedAt: today() }
+    if (idx >= 0) db.posts[idx] = { ...db.posts[idx], ...post, excerpt, updatedAt: today() }
   } else {
     const id = Math.max(0, ...db.posts.map((p) => p.id)) + 1
-    db.posts.unshift({ ...post, id, updatedAt: today(), likes: 0 })
+    db.posts.unshift({
+      ...post,
+      id,
+      excerpt,
+      updatedAt: today(),
+      likes: 0,
+      commentsCount: 0,
+      author: db.user.nickname,
+    })
   }
   writeDB(db)
   return { ok: true }
@@ -53,13 +66,20 @@ export async function fetchCommentsApi(postId) {
   return { data: db.comments[postId] || [] }
 }
 
-export async function addCommentApi(postId, content, author) {
+export async function addCommentApi(postId, content, author, avatar) {
   if (!useMock) return request.post(`/posts/${postId}/comments`, { content })
   await sleep()
   const db = readDB()
-  const row = { author, content, time: new Date().toLocaleString() }
+  const row = {
+    author,
+    avatar: avatar || db.user.avatar || '',
+    content,
+    time: new Date().toLocaleString(),
+  }
   if (!db.comments[postId]) db.comments[postId] = []
   db.comments[postId].unshift(row)
+  const p = db.posts.find((item) => item.id === Number(postId))
+  if (p) p.commentsCount = (p.commentsCount || 0) + 1
   writeDB(db)
   return { data: row }
 }

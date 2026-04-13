@@ -1,8 +1,12 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AuthShell from '../components/AuthShell.vue'
 import { useBlogStore } from '../composables/useBlogStore'
+import { validateEmail, validateRegisterPassword } from '../utils/validators'
+
+const router = useRouter()
 const { forgotPassword } = useBlogStore()
 const form = reactive({
   email: '',
@@ -15,33 +19,44 @@ const sendingCode = ref(false)
 
 const sendCode = async () => {
   if (sendingCode.value) return
-  if (!form.email) {
-    ElMessage.warning('请先输入邮箱')
+  const err = validateEmail(form.email)
+  if (err) {
+    ElMessage.warning(err)
     return
   }
   sendingCode.value = true
   try {
     await new Promise((resolve) => setTimeout(resolve, 700))
-    ElMessage.success(`验证码已发送到：${form.email}`)
+    ElMessage.success(`验证码已发送到：${form.email.trim()}`)
   } finally {
     sendingCode.value = false
   }
 }
 
+const validateForm = () => {
+  const e1 = validateEmail(form.email)
+  if (e1) return e1
+  if (!String(form.code || '').trim()) return '验证码为必填'
+  const e2 = validateRegisterPassword(form.password)
+  if (e2) return e2
+  if (form.password !== form.confirmPassword) return '两次输入的密码不一致'
+  return ''
+}
+
 const submit = async () => {
   if (submitting.value) return
-  if (!form.code) {
-    ElMessage.error('请输入验证码')
-    return
-  }
-  if (form.password !== form.confirmPassword) {
-    ElMessage.error('两次输入的新密码不一致')
+  const err = validateForm()
+  if (err) {
+    ElMessage.error(err)
     return
   }
   submitting.value = true
   try {
-    await forgotPassword({ email: form.email, password: form.password })
-    ElMessage.success(`重置请求已提交：${form.email || '您的邮箱'}`)
+    await forgotPassword({ email: form.email.trim(), code: form.code.trim(), password: form.password })
+    ElMessage.success('重置密码成功')
+    router.push('/login')
+  } catch (e) {
+    ElMessage.error(e?.message || '重置失败，请稍后重试')
   } finally {
     submitting.value = false
   }
@@ -73,6 +88,7 @@ const submit = async () => {
         type="password"
         autocomplete="new-password"
       />
+      <p class="field-hint">8-20 位，须同时包含字母与数字。</p>
       <label class="field-label" for="reset-confirm-password">确认新密码</label>
       <input
         id="reset-confirm-password"

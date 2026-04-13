@@ -1,7 +1,7 @@
 import { computed, reactive } from 'vue'
 import { forgotPasswordApi, loginApi, logoutApi, registerApi } from '../api/auth'
 import { addCommentApi, deletePostApi, fetchCommentsApi, fetchPostApi, fetchPostsApi, savePostApi } from '../api/posts'
-import { deleteAccountApi, fetchProfileApi, updateProfileApi, updateSecurityApi } from '../api/user'
+import { deleteAccountApi, fetchProfileApi, updateProfileApi, updateSecurityApi, uploadAvatarApi } from '../api/user'
 import { isLoggedIn as readLoginState } from '../mock/db'
 
 const state = reactive({
@@ -41,9 +41,14 @@ async function logout() {
 }
 
 async function addComment(postId, content) {
-  await addCommentApi(postId, content, state.user.nickname || '访客')
+  await addCommentApi(postId, content, state.user.nickname || '访客', state.user.avatar || '')
   const res = await fetchCommentsApi(postId)
   state.comments[postId] = res.data
+}
+
+async function uploadAvatar(file) {
+  const res = await uploadAvatarApi(file)
+  return res.data?.url || ''
 }
 
 async function loadComments(postId) {
@@ -96,6 +101,7 @@ export function useBlogStore() {
     saveSecurity,
     destroyAccount,
     addComment,
+    uploadAvatar,
     upsertPost,
     removePost,
   }

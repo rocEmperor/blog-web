@@ -4,19 +4,46 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AuthShell from '../components/AuthShell.vue'
 import { useBlogStore } from '../composables/useBlogStore'
+import {
+  validateEmail,
+  validateNickname,
+  validateRegisterPassword,
+} from '../utils/validators'
 
 const router = useRouter()
 const { register } = useBlogStore()
 const form = reactive({ email: '', nickname: '', password: '', password2: '' })
 const submitting = ref(false)
+
+const validateForm = () => {
+  const e1 = validateNickname(form.nickname)
+  if (e1) return e1
+  const e2 = validateEmail(form.email)
+  if (e2) return e2
+  const e3 = validateRegisterPassword(form.password)
+  if (e3) return e3
+  if (form.password !== form.password2) return '两次输入的密码不一致'
+  return ''
+}
+
 const submit = async () => {
   if (submitting.value) return
-  if (form.password !== form.password2) return ElMessage.error('两次密码不一致')
+  const err = validateForm()
+  if (err) {
+    ElMessage.error(err)
+    return
+  }
   submitting.value = true
   try {
-    await register({ ...form })
-    ElMessage.success('注册成功，请登录')
+    await register({
+      email: form.email.trim(),
+      nickname: form.nickname.trim(),
+      password: form.password,
+    })
+    ElMessage.success('注册成功')
     router.push('/login')
+  } catch (e) {
+    ElMessage.error(e?.message || '注册失败，请稍后重试')
   } finally {
     submitting.value = false
   }
@@ -31,16 +58,16 @@ const submit = async () => {
     card-lead="填写基本信息即可完成注册。"
   >
     <form class="auth-form" @submit.prevent="submit">
+      <label class="field-label" for="reg-nickname">昵称</label>
+      <input id="reg-nickname" v-model="form.nickname" class="field-input" type="text" autocomplete="username" />
+      <p class="field-hint">4-20 位，字母开头，仅字母、数字、下划线。</p>
+
       <label class="field-label" for="reg-email">邮箱</label>
       <input id="reg-email" v-model="form.email" class="field-input" type="email" autocomplete="email" />
 
-      <label class="field-label" for="reg-nickname">昵称</label>
-      <input id="reg-nickname" v-model="form.nickname" class="field-input" type="text" />
-      <p class="field-hint">将展示在文章与评论旁。</p>
-
       <label class="field-label" for="reg-password">密码</label>
       <input id="reg-password" v-model="form.password" class="field-input" type="password" autocomplete="new-password" />
-      <p class="field-hint">至少 8 位字符。</p>
+      <p class="field-hint">8-20 位，须同时包含字母与数字。</p>
 
       <label class="field-label" for="reg-password2">确认密码</label>
       <input id="reg-password2" v-model="form.password2" class="field-input" type="password" autocomplete="new-password" />

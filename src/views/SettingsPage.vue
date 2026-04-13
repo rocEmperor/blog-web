@@ -1,9 +1,25 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBlogStore } from '../composables/useBlogStore'
+import {
+  validateBio,
+  validateEmail,
+  validateNickname,
+  validatePhoneOptional,
+  validateSecurityPassword,
+} from '../utils/validators'
 
-const { state, saveProfile: saveProfileApi, saveSecurity: saveSecurityApi, destroyAccount: destroyAccountApi, logout } = useBlogStore()
+const router = useRouter()
+const {
+  state,
+  saveProfile: saveProfileApi,
+  saveSecurity: saveSecurityApi,
+  destroyAccount: destroyAccountApi,
+  logout,
+  uploadAvatar,
+} = useBlogStore()
 const tab = ref('profile')
 const profile = reactive({ nickname: state.user.nickname, bio: state.user.bio, phone: state.user.phone })
 const security = reactive({ email: state.user.email, current: '', next: '', confirmNext: '' })
@@ -11,7 +27,8 @@ const profileLoading = ref(false)
 const securityLoading = ref(false)
 const dangerLoading = ref(false)
 const fileInputRef = ref(null)
-const avatarPreview = ref('')
+const avatarPreview = ref(state.user.avatar || '')
+const pendingAvatarUrl = ref('')
 
 watch(
   () => state.user,
@@ -20,45 +37,79 @@ watch(
     profile.bio = value.bio || ''
     profile.phone = value.phone || ''
     security.email = value.email || ''
+    if (!pendingAvatarUrl.value) avatarPreview.value = value.avatar || ''
   },
   { immediate: true, deep: true },
 )
 
 const saveProfile = async () => {
   if (profileLoading.value) return
+  const e1 = validateNickname(profile.nickname)
+  if (e1) return ElMessage.error(e1)
+  const e2 = validateBio(profile.bio)
+  if (e2) return ElMessage.error(e2)
+  const e3 = validatePhoneOptional(profile.phone)
+  if (e3) return ElMessage.error(e3)
   profileLoading.value = true
   try {
-    await saveProfileApi({ ...profile })
-    ElMessage.success('资料已保存')
+    const payload = {
+      nickname: profile.nickname.trim(),
+      bio: String(profile.bio || '').trim(),
+      phone: String(profile.phone || '').trim(),
+    }
+    if (pendingAvatarUrl.value) payload.avatar = pendingAvatarUrl.value
+    await saveProfileApi(payload)
+    pendingAvatarUrl.value = ''
+    ElMessage.success('设置成功')
+  } catch (e) {
+    ElMessage.error(e?.message || '保存失败')
   } finally {
     profileLoading.value = false
   }
 }
+
 const saveSecurity = async () => {
   if (securityLoading.value) return
-  if (security.next && security.next !== security.confirmNext) {
-    ElMessage.error('两次输入的新密码不一致')
-    return
-  }
+  const e0 = validateEmail(security.email)
+  if (e0) return ElMessage.error(e0)
+  const e1 = validateSecurityPassword(security.current, '当前密码')
+  if (e1) return ElMessage.error(e1)
+  const e2 = validateSecurityPassword(security.next, '新密码')
+  if (e2) return ElMessage.error(e2)
+  if (security.next !== security.confirmNext) return ElMessage.error('两次输入的新密码不一致')
   securityLoading.value = true
   try {
-    await saveSecurityApi({ email: security.email, current: security.current, next: security.next })
+    await saveSecurityApi({ email: security.email.trim(), current: security.current, next: security.next })
     security.current = ''
     security.next = ''
     security.confirmNext = ''
-    ElMessage.success('安全信息已更新')
+    ElMessage.success('设置成功')
+  } catch (e) {
+    ElMessage.error(e?.message || '更新失败')
   } finally {
     securityLoading.value = false
   }
 }
+
 const handleDestroyAccount = async () => {
   if (dangerLoading.value) return
-  await ElMessageBox.confirm('此操作仅演示，确认执行？', '账号管理')
+  try {
+    await ElMessageBox.confirm('是否注销该账号？此操作不可恢复。', '注销账号', {
+      confirmButtonText: '确认注销',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
   dangerLoading.value = true
   try {
     await destroyAccountApi()
     await logout()
-    ElMessage.success('已执行演示注销')
+    ElMessage.success('注销成功')
+    router.push('/login')
+  } catch (e) {
+    ElMessage.error(e?.message || '注销失败')
   } finally {
     dangerLoading.value = false
   }
@@ -68,21 +119,25 @@ const openFilePicker = () => {
   fileInputRef.value?.click()
 }
 
-const onAvatarFileChange = (event) => {
+const onAvatarFileChange = async (event) => {
   const file = event.target.files?.[0]
   if (!file) return
-  const isImage = ['image/jpeg', 'image/png'].includes(file.type)
-  if (!isImage) {
-    ElMessage.error('仅支持 JPG/PNG 格式')
+  const okType = ['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)
+  if (!okType) {
+    ElMessage.error('仅支持 png / jpg / jpeg 格式')
     event.target.value = ''
     return
   }
-  const reader = new FileReader()
-  reader.onload = () => {
-    avatarPreview.value = String(reader.result || '')
+  try {
+    const url = await uploadAvatar(file)
+    pendingAvatarUrl.value = url
+    avatarPreview.value = url
+    ElMessage.success('头像已上传，保存资料后生效')
+  } catch (e) {
+    ElMessage.error(e?.message || '上传失败')
+  } finally {
+    event.target.value = ''
   }
-  reader.readAsDataURL(file)
-  ElMessage.success('头像已选择，保存资料后生效')
 }
 </script>
 
@@ -104,7 +159,14 @@ const onAvatarFileChange = (event) => {
         <section v-show="tab === 'profile'" class="settings-section">
           <h2>资料与头像</h2>
           <div class="avatar-upload">
-            <span class="avatar" :style="avatarPreview ? { backgroundImage: `url(${avatarPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"></span>
+            <span
+              class="avatar"
+              :style="
+                avatarPreview
+                  ? { backgroundImage: `url(${avatarPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : {}
+              "
+            ></span>
             <div>
               <input
                 ref="fileInputRef"
@@ -113,8 +175,10 @@ const onAvatarFileChange = (event) => {
                 style="display: none"
                 @change="onAvatarFileChange"
               />
-              <button class="btn btn--ghost btn--sm" type="button" @click="openFilePicker">上传头像</button>
-              <p class="field-hint">支持 JPG/PNG，建议不小于 200x200 像素。</p>
+              <button class="btn btn--ghost btn--sm" type="button" :disabled="profileLoading" @click="openFilePicker">
+                上传头像
+              </button>
+              <p class="field-hint">非必填；支持 png / jpg / jpeg，上传后由后端返回 URL（Mock 为占位头像）。</p>
             </div>
           </div>
 
@@ -131,7 +195,9 @@ const onAvatarFileChange = (event) => {
               <label for="phone">手机号</label>
               <input id="phone" v-model="profile.phone" type="tel" placeholder="选填" />
             </div>
-            <button class="btn btn--primary" :disabled="profileLoading" type="submit">{{ profileLoading ? '保存中...' : '保存资料' }}</button>
+            <button class="btn btn--primary" :disabled="profileLoading" type="submit">
+              {{ profileLoading ? '保存中...' : '保存资料' }}
+            </button>
           </form>
         </section>
 
@@ -154,13 +220,15 @@ const onAvatarFileChange = (event) => {
               <label for="confirm-new-pw">确认新密码</label>
               <input id="confirm-new-pw" v-model="security.confirmNext" type="password" />
             </div>
-            <button class="btn btn--primary" :disabled="securityLoading" type="submit">{{ securityLoading ? '更新中...' : '更新密码' }}</button>
+            <button class="btn btn--primary" :disabled="securityLoading" type="submit">
+              {{ securityLoading ? '更新中...' : '更新密码' }}
+            </button>
           </form>
         </section>
 
         <section v-show="tab === 'danger'" class="settings-section">
           <h2>账号管理</h2>
-          <p class="danger-text">注销后数据将根据合规要求处理，此按钮仅作流程占位。</p>
+          <p class="danger-text">注销后数据将根据合规要求处理，请谨慎操作。</p>
           <button class="btn btn--danger" :disabled="dangerLoading" type="button" @click="handleDestroyAccount">
             {{ dangerLoading ? '处理中...' : '注销账号' }}
           </button>

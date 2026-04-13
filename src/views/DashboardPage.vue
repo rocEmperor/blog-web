@@ -1,27 +1,57 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useBlogStore } from '../composables/useBlogStore'
+import { visibilityLabel } from '../constants/blog'
 
 const { state, removePost } = useBlogStore()
 const router = useRouter()
 const q = ref('')
 const page = ref(1)
-const pageSize = 3
+const pageSize = 10
 const deletingId = ref(null)
-const rows = computed(() => state.posts.filter((p) => p.title.includes(q.value)))
+
+const rows = computed(() => {
+  const kw = q.value.trim()
+  const base = state.posts
+  if (!kw) return base
+  return base.filter((p) => p.title.includes(kw))
+})
+
 const pageRows = computed(() => rows.value.slice((page.value - 1) * pageSize, page.value * pageSize))
 const totalPages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize)))
+
+watch(
+  () => state.posts.length,
+  () => {
+    page.value = 1
+  },
+)
 
 const pageTo = (value) => {
   if (value < 1 || value > totalPages.value) return
   page.value = value
 }
 
+const onSearchEnter = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    page.value = 1
+  }
+}
+
 const del = async (id) => {
   if (deletingId.value) return
-  await ElMessageBox.confirm('确认删除该文章？', '提示')
+  try {
+    await ElMessageBox.confirm('确认删除该文章？', '提示', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
   deletingId.value = id
   try {
     await removePost(id)
@@ -42,17 +72,23 @@ const del = async (id) => {
         </nav>
 
         <div class="profile-hero dashboard-hero">
-          <span class="avatar"></span>
+          <span class="avatar" aria-hidden="true"></span>
           <div>
-            <h1>林小川</h1>
-            <p class="bio">工作台：管理您的全部文章（含仅自己可见的草稿/私密）。</p>
+            <h1>{{ state.user.nickname }}</h1>
+            <p class="bio">工作台：管理您的全部文章（含仅自己可见）。标题支持回车触发查询重置到第一页。</p>
           </div>
         </div>
 
         <div class="page-title-row">
           <h1>文章管理</h1>
           <div class="dashboard-toolbar">
-            <input v-model="q" class="dashboard-search" type="search" placeholder="搜索我的文章…" />
+            <input
+              v-model="q"
+              class="dashboard-search"
+              type="search"
+              placeholder="按博客标题模糊查询，回车查询"
+              @keydown="onSearchEnter"
+            />
             <a class="dashboard-create" href="#" @click.prevent="router.push('/editor')">新建文章</a>
           </div>
         </div>
@@ -69,13 +105,18 @@ const del = async (id) => {
             </thead>
             <tbody>
               <tr v-for="row in pageRows" :key="row.id">
-                <td><a href="#" @click.prevent="router.push(`/post/${row.id}`)">{{ row.title }}</a></td>
-                <td><span class="badge" :class="row.visibility === 'public' ? 'badge--public' : 'badge--private'">{{ row.visibility === 'public' ? '公开' : '私密' }}</span></td>
+                <td>
+                  <router-link :to="`/post/${row.id}`">{{ row.title }}</router-link>
+                </td>
+                <td>
+                  <span class="badge" :class="row.visibility === 'open' ? 'badge--public' : 'badge--private'">
+                    {{ visibilityLabel(row.visibility) }}
+                  </span>
+                </td>
                 <td>{{ row.updatedAt }}</td>
                 <td>
                   <div class="btn-group">
-                    <a class="btn btn--sm btn--ghost" href="#" @click.prevent="router.push(`/editor/${row.id}`)">编辑</a>
-                    <!-- <a class="btn btn--sm btn--ghost" href="#" @click.prevent="router.push(`/post/${row.id}`)">预览</a> -->
+                    <router-link class="btn btn--sm btn--ghost" :to="`/editor/${row.id}`">编辑</router-link>
                     <button class="btn btn--sm btn--danger" type="button" :disabled="deletingId === row.id" @click="del(row.id)">
                       {{ deletingId === row.id ? '删除中...' : '删除' }}
                     </button>
