@@ -6,10 +6,12 @@ import { useBlogStore } from '../composables/useBlogStore'
 const { state, saveProfile: saveProfileApi, saveSecurity: saveSecurityApi, destroyAccount: destroyAccountApi, logout } = useBlogStore()
 const tab = ref('profile')
 const profile = reactive({ nickname: state.user.nickname, bio: state.user.bio, phone: state.user.phone })
-const security = reactive({ email: state.user.email, current: '', next: '' })
+const security = reactive({ email: state.user.email, current: '', next: '', confirmNext: '' })
 const profileLoading = ref(false)
 const securityLoading = ref(false)
 const dangerLoading = ref(false)
+const fileInputRef = ref(null)
+const avatarPreview = ref('')
 
 watch(
   () => state.user,
@@ -34,9 +36,16 @@ const saveProfile = async () => {
 }
 const saveSecurity = async () => {
   if (securityLoading.value) return
+  if (security.next && security.next !== security.confirmNext) {
+    ElMessage.error('两次输入的新密码不一致')
+    return
+  }
   securityLoading.value = true
   try {
-    await saveSecurityApi({ ...security })
+    await saveSecurityApi({ email: security.email, current: security.current, next: security.next })
+    security.current = ''
+    security.next = ''
+    security.confirmNext = ''
     ElMessage.success('安全信息已更新')
   } finally {
     securityLoading.value = false
@@ -53,6 +62,27 @@ const handleDestroyAccount = async () => {
   } finally {
     dangerLoading.value = false
   }
+}
+
+const openFilePicker = () => {
+  fileInputRef.value?.click()
+}
+
+const onAvatarFileChange = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const isImage = ['image/jpeg', 'image/png'].includes(file.type)
+  if (!isImage) {
+    ElMessage.error('仅支持 JPG/PNG 格式')
+    event.target.value = ''
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    avatarPreview.value = String(reader.result || '')
+  }
+  reader.readAsDataURL(file)
+  ElMessage.success('头像已选择，保存资料后生效')
 }
 </script>
 
@@ -74,9 +104,16 @@ const handleDestroyAccount = async () => {
         <section v-show="tab === 'profile'" class="settings-section">
           <h2>资料与头像</h2>
           <div class="avatar-upload">
-            <span class="avatar"></span>
+            <span class="avatar" :style="avatarPreview ? { backgroundImage: `url(${avatarPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"></span>
             <div>
-              <button class="btn btn--ghost btn--sm" type="button">上传头像</button>
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                style="display: none"
+                @change="onAvatarFileChange"
+              />
+              <button class="btn btn--ghost btn--sm" type="button" @click="openFilePicker">上传头像</button>
               <p class="field-hint">支持 JPG/PNG，建议不小于 200x200 像素。</p>
             </div>
           </div>
@@ -112,6 +149,10 @@ const handleDestroyAccount = async () => {
             <div class="field">
               <label for="new-pw">新密码</label>
               <input id="new-pw" v-model="security.next" type="password" />
+            </div>
+            <div class="field">
+              <label for="confirm-new-pw">确认新密码</label>
+              <input id="confirm-new-pw" v-model="security.confirmNext" type="password" />
             </div>
             <button class="btn btn--primary" :disabled="securityLoading" type="submit">{{ securityLoading ? '更新中...' : '更新密码' }}</button>
           </form>

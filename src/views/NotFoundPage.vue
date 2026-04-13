@@ -6,7 +6,7 @@
         <h2>页面不存在</h2>
         <p>该文章或用户可能已删除，或链接有误。</p>
         <div class="btn-group error-actions">
-          <router-link class="btn btn--primary" to="/">回到首页</router-link>
+          <router-link class="btn btn--primary" style="margin-right: 8px;" to="/">回到首页</router-link>
           <router-link class="btn btn--ghost" to="/login">登录</router-link>
         </div>
       </div>

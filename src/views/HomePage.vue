@@ -5,8 +5,8 @@ import { useBlogStore } from '../composables/useBlogStore'
 
 const route = useRoute()
 const { state } = useBlogStore()
-const currentCategory = ref('推荐')
-const categories = ['推荐', '后端', '前端', 'Android', 'iOS', '人工智能', '工具开发', '阅读']
+const currentCategory = ref('全部')
+const categories = ['全部', '后端', '前端', 'Android', 'iOS', '人工智能', '工具开发', '阅读']
 const extraPosts = [
   { id: 101, title: '静态原型与后端对接时注意的几件事', author: '周映辰', category: '后端', excerpt: '表单字段、分页与错误码，尽量在 PRD 里对齐。', likes: 84, comments: 19, time: '1周前' },
   { id: 102, title: '一次组件库重构：从样式耦合到设计令牌', author: '陈听雨', category: '前端', excerpt: '把历史样式变量迁移成设计令牌的过程记录。', likes: 152, comments: 41, time: '3周前' },
@@ -23,7 +23,7 @@ const list = computed(() => {
 const posts = computed(() => {
   const q = String(route.query.q || '').trim().toLowerCase()
   let base = list.value
-  if (currentCategory.value !== '推荐') {
+  if (currentCategory.value !== '全部') {
     base = base.filter((p) => p.category === currentCategory.value)
   }
   return q ? base.filter((p) => `${p.title}${p.author}`.toLowerCase().includes(q)) : base

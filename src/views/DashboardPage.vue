@@ -75,7 +75,7 @@ const del = async (id) => {
                 <td>
                   <div class="btn-group">
                     <a class="btn btn--sm btn--ghost" href="#" @click.prevent="router.push(`/editor/${row.id}`)">编辑</a>
-                    <a class="btn btn--sm btn--ghost" href="#" @click.prevent="router.push(`/post/${row.id}`)">预览</a>
+                    <!-- <a class="btn btn--sm btn--ghost" href="#" @click.prevent="router.push(`/post/${row.id}`)">预览</a> -->
                     <button class="btn btn--sm btn--danger" type="button" :disabled="deletingId === row.id" @click="del(row.id)">
                       {{ deletingId === row.id ? '删除中...' : '删除' }}
                     </button>

@@ -6,6 +6,9 @@ import { useBlogStore } from '../composables/useBlogStore'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
+/** 与首页分类一致（不含「推荐」筛选项） */
+const postCategories = ['产品设计', '后端', '前端', 'Android', 'iOS', '人工智能', '工具开发', '阅读']
+
 const route = useRoute()
 const router = useRouter()
 const { state, upsertPost } = useBlogStore()
@@ -72,6 +75,13 @@ const save = async () => {
         <el-select id="post-visibility" v-model="form.visibility" style="width: 100%">
           <el-option value="public" label="公开" />
           <el-option value="private" label="仅自己可见" />
+        </el-select>
+      </div>
+
+      <div class="field">
+        <label for="post-category">文章分类</label>
+        <el-select id="post-category" v-model="form.category" placeholder="请选择分类" style="width: 100%">
+          <el-option v-for="c in postCategories" :key="c" :value="c" :label="c" />
         </el-select>
       </div>
 
