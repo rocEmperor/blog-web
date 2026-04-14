@@ -23,51 +23,14 @@ const categoryLabelToCode = {
   阅读: '7',
 }
 
-const extraPosts = [
-  {
-    id: 101,
-    title: '静态原型与后端对接时注意的几件事',
-    author: '周映辰',
-    categoryCode: '1',
-    excerpt: '表单字段、分页与错误码，尽量在 PRD 里对齐。',
-    likes: 84,
-    commentsCount: 19,
-    time: '1周前',
-    visibility: 'open',
-  },
-  {
-    id: 102,
-    title: '一次组件库重构：从样式耦合到设计令牌',
-    author: '陈听雨',
-    categoryCode: '2',
-    excerpt: '把历史样式变量迁移成设计令牌的过程记录。',
-    likes: 152,
-    commentsCount: 41,
-    time: '3周前',
-    visibility: 'open',
-  },
-  {
-    id: 103,
-    title: '接口权限设计的三个层次：路由、资源、字段',
-    author: '周映辰',
-    categoryCode: '1',
-    excerpt: '从网关到服务内校验，再到字段级权限过滤。',
-    likes: 118,
-    commentsCount: 33,
-    time: '1个月前',
-    visibility: 'open',
-  },
-]
-
 const list = computed(() => {
-  const fromState = state.posts
+  return state.posts
     .filter((p) => p.visibility === 'open')
     .map((p) => ({
       ...p,
-      time: p.updatedAt || '近期',
+      time: p.time || p.updatedAt || '近期',
       commentsCount: p.commentsCount ?? 0,
     }))
-  return [...fromState, ...extraPosts]
 })
 
 const filtered = computed(() => {

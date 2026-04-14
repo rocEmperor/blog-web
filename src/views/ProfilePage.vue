@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useBlogStore } from '../composables/useBlogStore'
 import { categoryLabel } from '../constants/blog'
+import { DEFAULT_AVATAR_URL } from '../constants/defaultAvatar'
 
 const { state, bootstrap } = useBlogStore()
 const page = ref(1)
@@ -37,8 +38,7 @@ const pullRefresh = async () => {
         <section class="profile-tab">
           <h2 class="profile-tab__title">个人信息</h2>
           <div class="profile-hero profile-hero--compact">
-            <img v-if="state.user.avatar" class="avatar avatar--img" :src="state.user.avatar" alt="" />
-            <span v-else class="avatar" aria-hidden="true"></span>
+            <img class="avatar avatar--img" :src="state.user.avatar || DEFAULT_AVATAR_URL" alt="" />
             <div>
               <h1>{{ state.user.nickname }}</h1>
               <p class="bio">{{ state.user.bio }}</p>

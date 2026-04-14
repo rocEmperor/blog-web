@@ -1,56 +1,54 @@
 import request from '../utils/request'
-import { readDB, writeDB, setLoggedIn } from '../mock/db'
-import { appConfig } from '../config'
+import { setLoggedIn } from '../utils/auth'
+import { DEFAULT_AVATAR_URL } from '../constants/defaultAvatar'
 
-const useMock = appConfig.useMock
-const sleep = (ms = 200) => new Promise((resolve) => setTimeout(resolve, ms))
+function mapMeToProfile(me) {
+  return {
+    nickname: me.nickname,
+    username: me.nickname,
+    email: me.email || '',
+    bio: me.bio || '',
+    phone: me.phone || '',
+    avatar: me.avatarUrl || DEFAULT_AVATAR_URL,
+  }
+}
 
 export async function fetchProfileApi() {
-  if (!useMock) return request.get('/user/profile')
-  await sleep(120)
-  const db = readDB()
-  return { data: db.user }
+  const me = await request.get('/users/me')
+  return { data: mapMeToProfile(me) }
 }
 
 export async function updateProfileApi(payload) {
-  if (!useMock) return request.put('/user/profile', payload)
-  await sleep()
-  const db = readDB()
-  db.user = { ...db.user, ...payload }
-  writeDB(db)
-  return { data: db.user }
+  const body = {
+    nickname: payload.nickname,
+    bio: payload.bio,
+    phone: payload.phone != null && String(payload.phone).trim() !== '' ? String(payload.phone).trim() : '',
+    avatarUrl: payload.avatarUrl != null ? payload.avatarUrl : payload.avatar,
+  }
+  if (body.avatarUrl === undefined || body.avatarUrl === '') {
+    delete body.avatarUrl
+  }
+  const me = await request.put('/users/me/profile', body)
+  return { data: mapMeToProfile(me) }
 }
 
-/** 上传头像文件流，返回新图片 URL（Mock 返回可访问占位图） */
 export async function uploadAvatarApi(file) {
-  if (!useMock) {
-    const fd = new FormData()
-    fd.append('file', file)
-    return request.post('/user/avatar', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-  }
-  await sleep(300)
-  const seed = encodeURIComponent(`${file.name}-${file.size}-${file.lastModified}`)
-  return {
-    data: {
-      url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`,
-    },
-  }
+  const fd = new FormData()
+  fd.append('file', file)
+  const data = await request.post('/users/me/avatar', fd)
+  return { data }
 }
 
 export async function updateSecurityApi(payload) {
-  if (!useMock) return request.put('/user/security', payload)
-  await sleep()
-  const db = readDB()
-  db.user.email = payload.email
-  writeDB(db)
-  return { ok: true }
+  return request.put('/users/me/security', {
+    email: payload.email,
+    currentPassword: payload.currentPassword ?? payload.current,
+    newPassword: payload.newPassword ?? payload.next,
+  })
 }
 
-export async function deleteAccountApi() {
-  if (!useMock) return request.delete('/user/account')
-  await sleep()
+export async function deleteAccountApi(body) {
+  const res = await request.delete('/users/me', { data: body || {} })
   setLoggedIn(false)
-  return { ok: true }
+  return res
 }

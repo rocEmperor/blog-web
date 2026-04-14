@@ -1,33 +1,50 @@
 import request from '../utils/request'
-import { readDB, setLoggedIn } from '../mock/db'
-import { appConfig } from '../config'
+import { setLoggedIn } from '../utils/auth'
+import { DEFAULT_AVATAR_URL } from '../constants/defaultAvatar'
 
-const useMock = appConfig.useMock
-const sleep = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms))
+function mapAuthUser(data) {
+  return {
+    username: data.username,
+    nickname: data.username,
+    email: data.email || '',
+    bio: '',
+    phone: '',
+    avatar: DEFAULT_AVATAR_URL,
+  }
+}
 
 export async function loginApi(payload) {
-  if (!useMock) return request.post('/auth/login', payload)
-  await sleep()
-  const db = readDB()
-  setLoggedIn(true)
-  return { token: 'mock-token', user: db.user }
+  const data = await request.post('/auth/login', {
+    nickname: payload.nickname,
+    password: payload.password,
+  })
+  setLoggedIn(true, data.token)
+  return { token: data.token, user: mapAuthUser(data) }
 }
 
 export async function registerApi(payload) {
-  if (!useMock) return request.post('/auth/register', payload)
-  await sleep()
-  return { ok: true, payload }
+  await request.post('/auth/register', {
+    nickname: payload.nickname,
+    email: payload.email,
+    password: payload.password,
+  })
+  return { ok: true }
 }
 
-export async function forgotPasswordApi(payload) {
-  if (!useMock) return request.post('/auth/forgot-password', payload)
-  await sleep()
-  return { ok: true, payload }
+export async function forgotPasswordSendCodeApi(email) {
+  return request.post('/auth/forgot-password/send-code', { email })
+}
+
+export async function forgotPasswordResetApi({ email, code, newPassword }) {
+  await request.post('/auth/forgot-password/reset', { email, code, newPassword })
+  return { ok: true }
 }
 
 export async function logoutApi() {
-  if (!useMock) return request.post('/auth/logout')
-  await sleep(100)
-  setLoggedIn(false)
+  try {
+    await request.post('/auth/logout')
+  } finally {
+    setLoggedIn(false)
+  }
   return { ok: true }
 }

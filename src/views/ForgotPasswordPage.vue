@@ -7,7 +7,7 @@ import { useBlogStore } from '../composables/useBlogStore'
 import { validateEmail, validateRegisterPassword } from '../utils/validators'
 
 const router = useRouter()
-const { forgotPassword } = useBlogStore()
+const { sendForgotPasswordCode, forgotPasswordReset } = useBlogStore()
 const form = reactive({
   email: '',
   code: '',
@@ -26,8 +26,10 @@ const sendCode = async () => {
   }
   sendingCode.value = true
   try {
-    await new Promise((resolve) => setTimeout(resolve, 700))
-    ElMessage.success(`验证码已发送到：${form.email.trim()}`)
+    await sendForgotPasswordCode(form.email.trim())
+    ElMessage.success(`验证码已发送：${form.email.trim()}`)
+  } catch (e) {
+    ElMessage.error(e?.message || '发送失败')
   } finally {
     sendingCode.value = false
   }
@@ -52,7 +54,7 @@ const submit = async () => {
   }
   submitting.value = true
   try {
-    await forgotPassword({ email: form.email.trim(), code: form.code.trim(), password: form.password })
+    await forgotPasswordReset({ email: form.email.trim(), code: form.code.trim(), password: form.password })
     ElMessage.success('重置密码成功')
     router.push('/login')
   } catch (e) {

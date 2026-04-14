@@ -10,7 +10,7 @@ import { validatePostBody, validatePostTitle } from '../utils/validators'
 
 const route = useRoute()
 const router = useRouter()
-const { state, upsertPost } = useBlogStore()
+const { state, upsertPost, loadPost } = useBlogStore()
 const editing = computed(() => state.posts.find((p) => p.id === Number(route.params.id)))
 
 const form = reactive({
@@ -28,17 +28,49 @@ watch(editorHtml, (value) => {
   form.body = value
 })
 
+function applyPostToForm(value) {
+  if (!value) return
+  form.id = value.id
+  form.title = value.title
+  form.visibility = value.visibility === 'private' ? 'only_myself' : value.visibility || 'open'
+  form.categoryCode = value.categoryCode || '1'
+  form.excerpt = value.excerpt || ''
+  form.body = value.body || ''
+  editorHtml.value = value.body || ''
+}
+
 watch(
   editing,
   (value) => {
     if (!value) return
-    form.id = value.id
-    form.title = value.title
-    form.visibility = value.visibility === 'private' ? 'only_myself' : value.visibility || 'open'
-    form.categoryCode = value.categoryCode || '1'
-    form.excerpt = value.excerpt
-    form.body = value.body
-    editorHtml.value = value.body
+    applyPostToForm(value)
+  },
+  { immediate: true },
+)
+
+async function loadRemoteEditorPost() {
+  const pid = Number(route.params.id)
+  if (!Number.isFinite(pid) || pid <= 0) return
+  try {
+    const data = await loadPost(pid)
+    if (!data) {
+      ElMessage.error('文章不存在')
+      router.push('/dashboard')
+      return
+    }
+    applyPostToForm(data)
+  } catch (e) {
+    ElMessage.error(e?.message || '加载失败')
+    router.push('/dashboard')
+  }
+}
+
+watch(
+  () => route.params.id,
+  (id) => {
+    if (id) {
+      loadRemoteEditorPost()
+    }
   },
   { immediate: true },
 )
@@ -87,7 +119,7 @@ const save = async () => {
       <div class="field">
         <label for="post-title">标题</label>
         <input id="post-title" v-model="form.title" type="text" maxlength="30" />
-        <p class="field-hint">必填，4-30 字。</p>
+        <p style="margin-top: 10px;" class="field-hint">必填，4-30 字。</p>
       </div>
 
       <div class="field">
@@ -109,7 +141,7 @@ const save = async () => {
         <div class="editor-box">
           <QuillEditor id="post-body" v-model:content="editorHtml" content-type="html" theme="snow" toolbar="full" />
         </div>
-        <p class="field-hint">必填，纯文本最多 5000 字（含标点）。</p>
+        <p style="margin-top: 10px;" class="field-hint">必填，纯文本最多 5000 字（含标点）。</p>
       </div>
     </form>
   </div>

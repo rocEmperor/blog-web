@@ -8,7 +8,7 @@ import {
   validateEmail,
   validateNickname,
   validatePhoneOptional,
-  validateSecurityPassword,
+  validateRegisterPassword,
 } from '../utils/validators'
 
 const router = useRouter()
@@ -72,10 +72,10 @@ const saveSecurity = async () => {
   if (securityLoading.value) return
   const e0 = validateEmail(security.email)
   if (e0) return ElMessage.error(e0)
-  const e1 = validateSecurityPassword(security.current, '当前密码')
-  if (e1) return ElMessage.error(e1)
-  const e2 = validateSecurityPassword(security.next, '新密码')
-  if (e2) return ElMessage.error(e2)
+  const e1 = validateRegisterPassword(security.current)
+  if (e1) return ElMessage.error(e1.replace(/^密码/, '当前密码'))
+  const e2 = validateRegisterPassword(security.next)
+  if (e2) return ElMessage.error(e2.replace(/^密码/, '新密码'))
   if (security.next !== security.confirmNext) return ElMessage.error('两次输入的新密码不一致')
   securityLoading.value = true
   try {
@@ -178,7 +178,7 @@ const onAvatarFileChange = async (event) => {
               <button class="btn btn--ghost btn--sm" type="button" :disabled="profileLoading" @click="openFilePicker">
                 上传头像
               </button>
-              <p class="field-hint">非必填；支持 png / jpg / jpeg，上传后由后端返回 URL（Mock 为占位头像）。</p>
+              <p class="field-hint">非必填；支持 png / jpg / jpeg</p>
             </div>
           </div>
 

@@ -1,7 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBlogStore } from '../composables/useBlogStore'
+import { DEFAULT_AVATAR_URL } from '../constants/defaultAvatar'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,14 +15,26 @@ const q = computed({
   set: (value) => router.replace({ query: { ...route.query, q: value || undefined } }),
 })
 
-const defaultAvatar = 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c096878fae5298d45d3fpng.png'
+const defaultAvatar = DEFAULT_AVATAR_URL
 
 const doLogout = async () => {
   if (loggingOut.value) return
+  try {
+    await ElMessageBox.confirm('确定要退出当前账号吗？', '退出登录', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
   loggingOut.value = true
   try {
     await logout()
     router.push('/')
+    ElMessage.success('已退出登录')
+  } catch (e) {
+    ElMessage.error(e?.message || '退出失败')
   } finally {
     loggingOut.value = false
   }

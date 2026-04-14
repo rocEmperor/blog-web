@@ -5,19 +5,30 @@ import { ElMessage } from 'element-plus'
 import { useBlogStore } from '../composables/useBlogStore'
 import { categoryLabel } from '../constants/blog'
 import { validateComment } from '../utils/validators'
+import { DEFAULT_AVATAR_URL } from '../constants/defaultAvatar'
 
 const route = useRoute()
 const router = useRouter()
-const { state, isLoggedIn, addComment, loadComments, loadPost } = useBlogStore()
+const { state, isLoggedIn, addComment, deleteComment, toggleLike, loadComments, loadPost } = useBlogStore()
 const text = ref('')
 const id = computed(() => Number(route.params.id))
 const post = ref(null)
 const comments = computed(() => state.comments[id.value] || [])
 const submitting = ref(false)
+const liking = ref(false)
 
 const loadData = async () => {
-  post.value = await loadPost(id.value)
-  await loadComments(id.value)
+  try {
+    post.value = await loadPost(id.value)
+  } catch (e) {
+    post.value = null
+    ElMessage.error(e?.message || '无法加载文章')
+  }
+  try {
+    await loadComments(id.value)
+  } catch {
+    /* 评论接口未实现或非公开文 */
+  }
 }
 
 onMounted(loadData)
@@ -55,6 +66,32 @@ const submit = async () => {
   }
 }
 
+const onToggleLike = async () => {
+  if (!isLoggedIn.value || !post.value || liking.value) return
+  liking.value = true
+  try {
+    const res = await toggleLike(id.value, !!post.value.likedByMe)
+    post.value.likes = res.likeCount ?? post.value.likes
+    post.value.likedByMe = !!res.liked
+  } catch (e) {
+    ElMessage.error(e?.message || '操作失败')
+  } finally {
+    liking.value = false
+  }
+}
+
+const removeComment = async (commentId) => {
+  try {
+    await deleteComment(commentId, id.value)
+    if (post.value) {
+      post.value.commentsCount = Math.max(0, (post.value.commentsCount || 0) - 1)
+    }
+    ElMessage.success('评论已删除')
+  } catch (e) {
+    ElMessage.error(e?.message || '删除失败')
+  }
+}
+
 const goLoginForInteract = () => {
   router.push({ path: '/login', query: { redirect: route.fullPath } })
 }
@@ -69,7 +106,8 @@ const goPostWithAction = (action) => {
 </script>
 
 <template>
-  <article v-if="post" class="article-wrap">
+  <p v-if="!post" class="empty-hint" style="padding: 24px">文章不存在或无权查看。</p>
+  <article v-else class="article-wrap">
     <header class="article-header">
       <h1>{{ post.title }}</h1>
       <div class="article-meta">
@@ -87,7 +125,9 @@ const goPostWithAction = (action) => {
 
     <div class="interaction-bar">
       <template v-if="isLoggedIn">
-        <button class="btn btn--sm" type="button" @click="goPostWithAction('like')">♥ 点赞 {{ post.likes || 0 }}</button>
+        <button class="btn btn--sm" type="button" :disabled="liking" @click="onToggleLike">
+          {{ post.likedByMe ? '♥ 已点赞' : '♡ 点赞' }} {{ post.likes || 0 }}
+        </button>
         <button class="btn btn--sm" type="button" @click="goPostWithAction('comment')">评论</button>
       </template>
       <template v-else>
@@ -108,13 +148,18 @@ const goPostWithAction = (action) => {
       </template>
       <p v-else class="guest-hint">请 <router-link :to="{ path: '/login', query: { redirect: route.fullPath } }">登录</router-link> 后发表评论。</p>
       <ul class="comment-list">
-        <li v-for="(comment, i) in comments" :key="i" class="comment-item">
+        <li v-for="(comment, i) in comments" :key="comment.id || i" class="comment-item">
           <div class="comment-item__head">
-            <img class="avatar avatar--sm avatar--img" :src="comment.avatar" :alt="comment.author" />
+            <img
+              class="avatar avatar--sm avatar--img"
+              :src="comment.avatar || DEFAULT_AVATAR_URL"
+              :alt="comment.author"
+            />
             <span class="comment-item__author">{{ comment.author }}</span>
             <span class="comment-item__time">{{ comment.time }}</span>
           </div>
           <p>{{ comment.content }}</p>
+          <button v-if="comment.canDelete" type="button" class="action-link" @click="removeComment(comment.id)">删除</button>
         </li>
       </ul>
     </section>

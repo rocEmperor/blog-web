@@ -9,7 +9,6 @@ const resolveApiBaseURL = () => {
 export const appConfig = {
   mode,
   apiBaseURL: resolveApiBaseURL(),
-  useMock: String(import.meta.env.VITE_USE_MOCK || 'false') === 'true',
   requestTimeout: Number(import.meta.env.VITE_REQUEST_TIMEOUT || 12000),
 }
 
